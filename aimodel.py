@@ -165,6 +165,45 @@ def plot_gradient_boosting_results(results):
     plt.close()
 
 
+def plot_model_performance(results):
+    """Plot the R2 performance of different models and save as PNG."""
+    # Extract model names and R2 values
+    model_names = [result[0] for result in results]
+    r2_values = [result[3] for result in results]
+
+    # Find the model with the highest R2 value
+    best_model_index = np.argmax(r2_values)
+    best_model_name = model_names[best_model_index]
+    best_r2_value = r2_values[best_model_index]
+
+    # Set up the bar width and positions
+    bar_width = 0.4
+    index = np.arange(len(model_names))
+
+    # Create the bar plot
+    plt.figure(figsize=(12, 8))
+    bars = plt.bar(index, r2_values, bar_width, label='R2')
+
+    # Highlight the best model
+    bars[best_model_index].set_color('r')
+
+    # Add labels and title
+    plt.xlabel('Models')
+    plt.ylabel('R2 Score')
+    plt.title('Model Performance Comparison (R2)')
+    plt.xticks(index, model_names, rotation=45)
+    plt.legend()
+
+    # Annotate the best model
+    plt.text(best_model_index, best_r2_value, f'{best_model_name}\nR2: {best_r2_value:.2f}',
+             ha='center', va='bottom', color='red', fontweight='bold')
+
+    # Save the plot as a PNG file
+    plt.tight_layout()
+    plt.savefig('model_performance_comparison.png')
+    plt.show()
+
+
 def train_and_evaluate(models, X_train, y_train, X_test, y_test):
     """Train and evaluate each model, then save the trained model."""
     results = []
@@ -215,6 +254,9 @@ def main():
     # Print final results
     for name, mse, mae, r2 in results:
         print(f'{name} - MSE: {mse}, MAE: {mae}, R2: {r2}')
+
+    # Plot model performance
+    plot_model_performance(results)
 
 
 if __name__ == "__main__":
