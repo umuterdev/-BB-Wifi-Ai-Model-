@@ -25,7 +25,7 @@ df_grouped = df_grouped.sort_values(by='NUMBER_OF_DISTINCT_USERS', ascending=Fal
 
 # Save the grouped DataFrame to a CSV file
 # Save the grouped DataFrame to a CSV file in the csvfiles folder
-df_grouped.to_csv(r'C:\Users\erumu\OneDrive - MEF Üniversitesi\Desktop\sesibbwifi\csvfiles\ibbwifi_cleaned.csv', index=False)
+df_grouped.to_csv('your_file_path', index=False)
 
 # Set up the plot
 plt.figure(figsize=(15, 10))
