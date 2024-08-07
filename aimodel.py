@@ -83,6 +83,9 @@ def preprocess_data(df):
     # One-hot encode categorical features
     X = pd.get_dummies(X)
 
+    # Get feature names before normalization
+    feature_names = X.columns
+
     # Normalize features
     scaler = StandardScaler()
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -90,7 +93,7 @@ def preprocess_data(df):
     X_test = scaler.transform(X_test)
 
     logger.info("Data preprocessing completed.")
-    return X_train, X_test, y_train, y_test
+    return X_train, X_test, y_train, y_test, feature_names
 
 
 def tune_svr(X_train, y_train):
@@ -134,16 +137,18 @@ def tune_xgboost(X_train, y_train):
 
 
 def plot_feature_importances(model, feature_names):
-    """Plot feature importances."""
+    """Plot the top 10 feature importances and save as PNG."""
     if hasattr(model, 'feature_importances_'):
         importances = model.feature_importances_
-        indices = np.argsort(importances)[::-1]
-        plt.figure()
-        plt.title("Feature Importances")
-        plt.bar(range(len(feature_names)), importances[indices], align="center")
-        plt.xticks(range(len(feature_names)), np.array(feature_names)[indices], rotation=90)
-        plt.xlim([-1, len(feature_names)])
-        plt.show()
+        indices = np.argsort(importances)[::-1][:10]  # Select top 10 features
+        plt.figure(figsize=(12, 8))  # Adjust the figure size
+        plt.title("Top 10 Feature Importances")
+        plt.bar(range(10), importances[indices], align="center")
+        plt.xticks(range(10), np.array(feature_names)[indices], rotation=90, ha='right')  # Rotate labels
+        plt.xlim([-1, 10])
+        plt.tight_layout()  # Adjust layout to fit labels
+        plt.savefig('top_10_feature_importances.png')  # Save the plot as a PNG file
+        plt.close()
 
 
 def plot_gradient_boosting_results(results):
@@ -204,7 +209,7 @@ def plot_model_performance(results):
     plt.show()
 
 
-def train_and_evaluate(models, X_train, y_train, X_test, y_test):
+def train_and_evaluate(models, X_train, y_train, X_test, y_test, feature_names):
     """Train and evaluate each model, then save the trained model."""
     results = []
     gradient_boosting_results = []
@@ -218,6 +223,9 @@ def train_and_evaluate(models, X_train, y_train, X_test, y_test):
         results.append((name, mse, mae, r2))
         logger.info(f'{name} - MSE: {mse}, MAE: {mae}, R2: {r2}')
         joblib.dump(model, f'{name.replace(" ", "_").lower()}_model.pkl')
+
+        # Plot feature importances if available
+        plot_feature_importances(model, feature_names)
 
         # Store predictions, actual values, and percentage differences for Gradient Boosting
         if name == 'Gradient Boosting':
@@ -239,17 +247,17 @@ def train_and_evaluate(models, X_train, y_train, X_test, y_test):
 
 def main():
     # Define file path
-    file_path = 'your_file_path'
+    file_path = r'your_file_path'
 
     # Load and preprocess data
     df = load_data(file_path)
-    X_train, X_test, y_train, y_test = preprocess_data(df)
+    X_train, X_test, y_train, y_test, feature_names = preprocess_data(df)
 
     # Define models
     models = define_models()
 
     # Train and evaluate models
-    results = train_and_evaluate(models, X_train, y_train, X_test, y_test)
+    results = train_and_evaluate(models, X_train, y_train, X_test, y_test, feature_names)
 
     # Print final results
     for name, mse, mae, r2 in results:
