@@ -12,6 +12,8 @@ import joblib
 import logging
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
+import re
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -216,42 +218,106 @@ def train_and_evaluate(models, X_train, y_train, X_test, y_test, feature_names):
     for name, model in models.items():
         logger.info(f"Training {name}...")
         model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-        mse = mean_squared_error(y_test, y_pred)
-        mae = mean_absolute_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
-        results.append((name, mse, mae, r2))
-        logger.info(f'{name} - MSE: {mse}, MAE: {mae}, R2: {r2}')
-        joblib.dump(model, f'{name.replace(" ", "_").lower()}_model.pkl')
+        preds = model.predict(X_test)
+        mse = mean_squared_error(y_test, preds)
+        mae = mean_absolute_error(y_test, preds)
+        r2 = r2_score(y_test, preds)
+        explained_var = explained_variance_score(y_test, preds)
 
-        # Plot feature importances if available
+        # Save the model
+        joblib.dump(model, f'{name.lower().replace(" ", "_")}_model.pkl')
+
+        logger.info(f'{name} - MSE: {mse}, MAE: {mae}, R2: {r2}, Explained Variance: {explained_var}')
+        results.append((name, mse, mae, r2))
+
+        if name == 'Gradient Boosting':
+            gradient_boosting_results = list(zip(preds, y_test, y_test.index))
+
+        # Plot feature importances if applicable
         plot_feature_importances(model, feature_names)
 
-        # Store predictions, actual values, and percentage differences for Gradient Boosting
-        if name == 'Gradient Boosting':
-            for pred, actual in zip(y_pred, y_test):
-                percentage_diff = ((pred - actual) / actual) * 100 if actual != 0 else float('inf')
-                gradient_boosting_results.append((pred, actual, percentage_diff))
-
-    # Print predictions, actual values, and percentage differences for Gradient Boosting
+    # Plot Gradient Boosting results
     if gradient_boosting_results:
-        print("\nGradient Boosting Predictions vs Actual Values:")
-        for pred, actual, percentage_diff in gradient_boosting_results:
-            print(f"Predicted: {pred}, Actual: {actual}, Percentage Difference: {percentage_diff:.2f}%")
-
-        # Plot the results
         plot_gradient_boosting_results(gradient_boosting_results)
 
     return results
 
 
+def sanitize_filename(filename):
+    """Sanitize the filename by replacing invalid characters."""
+    return re.sub(r'[\\/*?:"<>|]', "_", filename)
+
+
+def convert_percentage_strings(df):
+    """Convert percentage strings to numeric values."""
+    for col in df.columns:
+        if df[col].dtype == 'object':
+            # Check if the column contains percentage strings
+            if df[col].str.contains('%').any():
+                df[col] = df[col].str.replace('%', '').astype(float) / 100
+    return df
+
+
+def plot_top_5_features(df, target_col):
+    """Plot graphs for the top 5 features based on correlation with the target variable."""
+    # Convert percentage strings to numeric values
+    df = convert_percentage_strings(df)
+
+    # Drop non-numeric columns
+    df_numeric = df.select_dtypes(include=[np.number])
+
+    # Compute the correlation matrix
+    corr_matrix = df_numeric.corr()
+
+    # Get the top 5 features correlated with the target variable
+    top_5_features = corr_matrix[target_col].abs().sort_values(ascending=False).index[1:6]
+
+    # Plot distributions and relationships with the target variable for the top 5 features
+    for feature in top_5_features:
+        plt.figure(figsize=(12, 6))
+
+        # Plot distribution of the feature
+        plt.subplot(1, 2, 1)
+        sns.histplot(df[feature], kde=True)
+        plt.title(f'Distribution of {feature}')
+
+        # Plot relationship with the target variable
+        plt.subplot(1, 2, 2)
+        sns.scatterplot(x=df[feature], y=df[target_col])
+        plt.title(f'{feature} vs {target_col}')
+
+        plt.tight_layout()
+        plt.show()  # Display the plots instead of saving them
+
+    logger.info("Top 5 feature analysis plots displayed.")
+
+
+def eda(df, target_col='user_of_ibbwifi'):
+    """Perform Exploratory Data Analysis (EDA) on the dataset."""
+    # Convert percentage strings to numeric values
+    df = convert_percentage_strings(df)
+
+    # Summarize the dataset
+    logger.info("Dataset Summary:")
+    logger.info(df.describe())
+    logger.info(df.info())
+
+    # Plot distributions and relationships for the top 5 features
+    plot_top_5_features(df, target_col)
+
+    logger.info("EDA completed and plots displayed.")
+
+
 def main():
     # Define file path
-    file_path = r'your_file_path'
+    file_path = 'your_file_path'
 
     # Load and preprocess data
     df = load_data(file_path)
     X_train, X_test, y_train, y_test, feature_names = preprocess_data(df)
+
+    # Perform EDA
+    eda(df, target_col='user_of_ibbwifi')
 
     # Define models
     models = define_models()
